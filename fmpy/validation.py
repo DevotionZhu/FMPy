@@ -8,12 +8,6 @@ def validate_model_description(model_description, validate_variable_names=False,
     if validate_variable_names:
         problems += _validate_variable_names(model_description)
 
-    # assert attribute "derivative" for derivatives defined in <ModelStructure>
-    for i, derivative in enumerate(model_description.derivatives):
-        if derivative.variable.derivative is None:
-            problems.append('State variable "%s" (line %s, state index %d) does not define a derivative.' % (
-            derivative.variable.name, derivative.variable.sourceline, i + 1))
-
     unit_definitions = {}
 
     for unit in model_description.unitDefinitions:
@@ -99,7 +93,14 @@ def _validate_model_structure(model_description):
     if expected_outputs != outputs:
         problems.append('ModelStructure/Outputs must have exactly one entry for each variable with causality="output".')
 
-    # TODO: validate derivatives
+    # validate derivatives
+    derivatives = set(v for v in model_description.modelVariables if v.derivative is not None)
+    for i, state_derivative in enumerate(model_description.derivatives):
+        if state_derivative.variable not in derivatives:
+            problems.append('The variable "%s" (line %d) referenced by the continuous state derivative %d (line %d)'
+                            ' must have the attribute "derivative".'
+                            % (state_derivative.variable.name, state_derivative.variable.sourceline,
+                               i + 1, state_derivative.sourceline))
 
     # validate initial unknowns
     expected_initial_unknowns = set()

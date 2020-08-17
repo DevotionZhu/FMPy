@@ -259,6 +259,8 @@ class Unknown(object):
         self.variable = None
         self.dependencies = []
         self.dependenciesKind = []
+        self.sourceline = None
+        "Line number in the modelDescription.xml"
 
     def __repr__(self):
         return '%s' % self.variable
@@ -757,7 +759,7 @@ def read_model_description(filename, validate=True, validate_variable_names=Fals
 
             for u in root.findall('ModelStructure/' + element + '/Unknown'):
                 unknown = Unknown()
-
+                unknown.sourceline = u.sourceline
                 unknown.variable = modelDescription.modelVariables[int(u.get('index')) - 1]
 
                 dependencies = u.get('dependencies')
@@ -780,7 +782,6 @@ def read_model_description(filename, validate=True, validate_variable_names=Fals
                 variable.derivative = modelDescription.modelVariables[index]
 
     if is_fmi3:
-        modelDescription.numberOfEventIndicators = len(root.findall('ModelStructure/EventIndicator'))
 
         for attr, element in [(modelDescription.outputs, 'Output'),
                               (modelDescription.derivatives, 'Derivative'),
@@ -788,9 +789,8 @@ def read_model_description(filename, validate=True, validate_variable_names=Fals
                               (modelDescription.eventIndicators, 'EventIndicator')]:
 
             for u in root.findall('ModelStructure/' + element):
-
                 unknown = Unknown()
-
+                unknown.sourceline = u.sourceline
                 unknown.variable = variables[int(u.get('valueReference'))]
 
                 dependencies = u.get('dependencies')
@@ -805,6 +805,13 @@ def read_model_description(filename, validate=True, validate_variable_names=Fals
                     unknown.dependenciesKind = dependenciesKind.strip().split(' ')
 
                 attr.append(unknown)
+
+        modelDescription.numberOfEventIndicators = len(modelDescription.eventIndicators)
+
+        # resolve derivatives
+        for variable in modelDescription.modelVariables:
+            if variable.derivative is not None:
+                variable.derivative = modelDescription.modelVariables[int(variable.derivative)]
 
     problems = []
 
