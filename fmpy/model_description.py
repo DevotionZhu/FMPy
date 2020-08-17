@@ -25,9 +25,11 @@ class ModelDescription(object):
         self.typeDefinitions = []
         self.modelVariables = []
 
+        # model structure
         self.outputs = []
         self.derivatives = []
         self.initialUnknowns = []
+        self.eventIndicators = []
 
 
 class DefaultExperiment(object):
@@ -676,7 +678,7 @@ def read_model_description(filename, validate=True, validate_variable_names=Fals
 
         sv._python_type = type_map[sv.type]
 
-        if sv.type == 'Real':
+        if sv.type in ['Real', 'Float32', 'Float64']:
             sv.unit = value.get('unit')
             sv.displayUnit = value.get('displayUnit')
             sv.relativeQuantity = value.get('relativeQuantity') == 'true'
@@ -684,7 +686,7 @@ def read_model_description(filename, validate=True, validate_variable_names=Fals
             sv.nominal = value.get('nominal')
             sv.unbounded = value.get('unbounded') == 'true'
 
-        if sv.type in ['Real', 'Integer', 'Enumeration']:
+        if sv.type in ['Real', 'Enumeration'] or sv.type.startswith(('Float', 'Int')):
             sv.quantity = value.get('quantity')
             sv.min = value.get('min')
             sv.max = value.get('max')
@@ -779,6 +781,30 @@ def read_model_description(filename, validate=True, validate_variable_names=Fals
 
     if is_fmi3:
         modelDescription.numberOfEventIndicators = len(root.findall('ModelStructure/EventIndicator'))
+
+        for attr, element in [(modelDescription.outputs, 'Output'),
+                              (modelDescription.derivatives, 'Derivative'),
+                              (modelDescription.initialUnknowns, 'InitialUnknown'),
+                              (modelDescription.eventIndicators, 'EventIndicator')]:
+
+            for u in root.findall('ModelStructure/' + element):
+
+                unknown = Unknown()
+
+                unknown.variable = variables[int(u.get('valueReference'))]
+
+                dependencies = u.get('dependencies')
+
+                if dependencies:
+                    for vr in dependencies.strip().split(' '):
+                        unknown.dependencies.append(variables[int(vr)])
+
+                dependenciesKind = u.get('dependenciesKind')
+
+                if dependenciesKind:
+                    unknown.dependenciesKind = dependenciesKind.strip().split(' ')
+
+                attr.append(unknown)
 
     problems = []
 
